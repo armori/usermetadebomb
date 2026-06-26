@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "name": "usermetaDebomb",
+  "version": "0.2",
+  "description": "Injects a debombed user score card into Metacritic user-reviews pages.",
+  "permissions": [],
+  "host_permissions": [
+    "*://*.metacritic.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["*://*.metacritic.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_title": "usermetaDebomb"
+  }
+}
