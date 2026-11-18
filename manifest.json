@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "usermetaDebomb",
-  "version": "0.2",
+  "version": "0.4",
   "description": "Injects a debombed user score card into Metacritic user-reviews pages.",
   "permissions": [],
   "host_permissions": [

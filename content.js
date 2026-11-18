@@ -30,28 +30,34 @@
             <div class="flex gap-1 text-xs leading-none font-semibold self-center">${col3Html}</div>`;
     }
 
-    function inject() {
-        // If our card is already in the DOM and attached, nothing to do
-        const existing = document.querySelector('#metadebomb-card');
-        if (existing && existing.isConnected) return;
+    const GRID_SEL = '[class*="grid-cols-[max-content_1fr_max-content]"]';
 
-        const originalCard = document.querySelector('[data-testid="score-card-overview"]');
+    function inject() {
+        const originalCard = document.querySelector('[data-testid="score-card-overview"]:not(#metadebomb-card)');
         if (!originalCard) return;
 
         const scoreEl = originalCard.querySelector('.c-siteReviewScore span');
-        const grid = originalCard.querySelector('.product-reviews-score__right .grid');
+        const grid = originalCard.querySelector(GRID_SEL);
         if (!scoreEl || !grid) return;
 
         const score = parseFloat(scoreEl.textContent.trim());
-        const ch = grid.children;
-        const pos = parseCount(ch[2]?.querySelector('span')?.textContent);
-        const mix = parseCount(ch[5]?.querySelector('span')?.textContent);
-        const neg = parseCount(ch[8]?.querySelector('span')?.textContent);
+        const counts = {};
+        for (let i = 0; i + 2 < grid.children.length; i += 3) {
+            const label = grid.children[i].textContent.trim().toLowerCase();
+            counts[label] = parseCount(grid.children[i + 2].querySelector('span')?.textContent);
+        }
+        const pos = counts.positive ?? 0, mix = counts.mixed ?? 0, neg = counts.negative ?? 0;
         const total = pos + mix + neg;
 
         if (total === 0 || isNaN(score)) return;
         const remaining = total - neg;
         if (remaining <= 0) return;
+
+        // Si ya hay tarjeta nuestra con los mismos datos, no hacer nada; si no, rehacerla
+        const sig = [score, pos, mix, neg].join('|');
+        const existing = document.querySelector('#metadebomb-card');
+        if (existing?.isConnected && existing.dataset.sig === sig) return;
+        existing?.remove();
 
         // Remove negative reviews; their scores assumed uniform 0–4 (avg = 2)
         const debombed = (score * total - neg * 2) / remaining;
@@ -60,6 +66,8 @@
 
         const newCard = originalCard.cloneNode(true);
         newCard.id = 'metadebomb-card';
+        newCard.dataset.sig = sig;
+        newCard.removeAttribute('data-testid'); // evita duplicar el testid de la original
         newCard.style.marginTop = '12px';
 
         // Update score circle value and color
@@ -77,21 +85,23 @@
         circle.classList.add(color.cls);
 
         // Update left-side labels
-        const scoreTitle = newCard.querySelector('.score-card-left__score-title');
+        const scoreTitle = [...newCard.querySelectorAll('span')]
+            .find(s => s.textContent.trim().toLowerCase() === 'user score');
         if (scoreTitle) scoreTitle.textContent = 'Debombed';
         const sentiment = newCard.querySelector('.score-sentiment__texts > div');
         if (sentiment) sentiment.textContent = 'Est. without review bombs';
 
         // Replace right grid with debombing breakdown
-        const newGrid = newCard.querySelector('.product-reviews-score__right .grid');
+        const newGrid = newCard.querySelector(GRID_SEL);
         newGrid.innerHTML =
             makeRow('removed', negPct, '#ff6b73', `<span>${fmt(neg)}</span><span>(${negPct}%)</span>`) +
             makeRow('avg neg est.', 20, '#ffbd3f', `<span>2.0&thinsp;/&thinsp;10</span>`) +
             makeRow('without bombs', Math.round(debombed * 10), '#00ce7a', `<span>${debombed.toFixed(1)}&thinsp;/&thinsp;10</span>`);
 
         // Drop the "Edit My Review" button from the clone
-        newCard.querySelector('.product-reviews-score__review-button')?.remove();
-
+        const btn = newCard.querySelector('[data-testid="add-review-button"]');
+        if (btn) (btn.parentElement !== newCard ? btn.parentElement : btn).remove();
+        
         originalCard.after(newCard);
     }
 
